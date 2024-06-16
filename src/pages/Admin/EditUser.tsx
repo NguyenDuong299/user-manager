@@ -1,0 +1,141 @@
+import React, { useEffect, useState } from "react";
+import { Modal, Button, Form, Input, message, Select } from "antd";
+import axios from "axios";
+import { BASE_URL } from "../../axios/axios";
+import { User } from "../../components/user.type";
+import { EditOutlined } from "@ant-design/icons";
+import { toast } from "react-toastify";
+import { toastConfig } from "../../toast/toastConfig";
+
+interface EditUserProps {
+  userId: number;
+  onEditUserSuccess: (updatedUser: User) => void;
+}
+const roleOptions = [
+  { value: "1", label: "Admin" },
+  { value: "2", label: "User" },
+];
+export const EditUser: React.FC<EditUserProps> = ({
+  userId,
+  onEditUserSuccess,
+}) => {
+  const [visible, setVisible] = useState(false);
+  const [form] = Form.useForm();
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    if (userId && visible) {
+      axios
+        .get(`${BASE_URL}/user/show/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          form.setFieldsValue(res.data.user);
+        })
+        .catch(() => {
+          toast.error(
+            "Failed to fetch user data. Please try again.",
+            toastConfig
+          );
+        });
+    }
+  }, [userId, visible]);
+
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      axios
+        .put(`${BASE_URL}/user/edit/${userId}`, values, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          setVisible(false);
+          onEditUserSuccess(res.data);
+          toast.success("User updated successfully", toastConfig);
+        })
+        .catch(() => {
+          toast.error("Failed to update user. Please try again.", toastConfig);
+        });
+    });
+  };
+
+  return (
+    <>
+      <Button type="primary" onClick={() => setVisible(true)}>
+        <EditOutlined />
+      </Button>
+      <Modal
+        title="Edit User"
+        visible={visible}
+        onOk={handleOk}
+        onCancel={() => setVisible(false)}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="username"
+            label="Username"
+            rules={[{ required: true, message: "Please input the username!" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="fullname"
+            label="Full Name"
+            rules={[{ required: true, message: "Please input the full name!" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: "Please input your email!" },
+              { type: "email", message: "The input is not valid E-mail!" },
+              {
+                pattern: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
+                message: "Email must be a valid Gmail address!",
+              },
+            ]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="address"
+            label="Address"
+            rules={[{ required: true, message: "Please input the address!" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="number_phone"
+            label="Phone Number"
+            rules={[
+              { required: true, message: "Please input your phone number!" },
+              {
+                pattern: /^[0-9]{10}$/,
+                message: "Phone number must be 10 digits!",
+              },
+            ]}
+          >
+            <Input />
+          </Form.Item>
+          {/* <Form.Item
+            name="avatar"
+            label="Avatar URL"
+            rules={[{ required: true, message: "Please input the avatar URL!" }]}
+          >
+            <Input />
+          </Form.Item> */}
+          <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+          <Select>
+              {roleOptions.map(option => (
+                <Select.Option key={option.value} value={option.value}>
+                  {option.label}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
+};
