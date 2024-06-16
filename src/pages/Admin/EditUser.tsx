@@ -19,12 +19,12 @@ export const EditUser: React.FC<EditUserProps> = ({
   userId,
   onEditUserSuccess,
 }) => {
-  const [visible, setVisible] = useState(false);
+  const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (userId && visible) {
+    if (userId && open) {
       axios
         .get(`${BASE_URL}/user/show/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -43,7 +43,7 @@ export const EditUser: React.FC<EditUserProps> = ({
           );
         });
     }
-  }, [userId, visible]);
+  }, [userId, open]);
 
   const handleOk = () => {
     form
@@ -54,7 +54,7 @@ export const EditUser: React.FC<EditUserProps> = ({
             headers: { Authorization: `Bearer ${token}` },
           })
           .then((res) => {
-            setVisible(false);
+            setOpen(false);
             onEditUserSuccess(res.data);
             toast.success("User updated successfully", toastConfig);
           })
@@ -72,14 +72,14 @@ export const EditUser: React.FC<EditUserProps> = ({
 
   return (
     <>
-      <Button type="primary" onClick={() => setVisible(true)}>
+      <Button type="primary" onClick={() => setOpen(true)}>
         <EditOutlined />
       </Button>
       <Modal
         title="Edit User"
-        visible={visible}
+        open={open}
         onOk={handleOk}
-        onCancel={() => setVisible(false)}
+        onCancel={() => setOpen(false)}
       >
         <Form form={form} layout="vertical">
           <Form.Item

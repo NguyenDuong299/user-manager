@@ -80,9 +80,9 @@ export const Admin: React.FC = () => {
           setUsers([]);
         }
       })
-      .catch(() => {
+      .catch((error) => {
         setLoading(false);
-        setError("Something went wrong");
+        setError(error.data.message || "Something went wrong");
         setTotalUsers(0); // Đặt tổng số người dùng là 0
       });
   };
