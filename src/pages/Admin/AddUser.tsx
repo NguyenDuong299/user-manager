@@ -8,6 +8,10 @@ import { toast } from "react-toastify";
 interface AddUserProps {
   onAddUserSuccess: (data: User) => void; // Hoặc () => void nếu bạn chọn cách 2
 }
+const roleOptions = [
+  { value: "1", label: "Admin" },
+  { value: "2", label: "User" },
+];
 export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form] = Form.useForm();
@@ -148,8 +152,11 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
             ]}
           >
             <Select>
-              <Select.Option value="1">Role 1</Select.Option>
-              <Select.Option value="2">Role 2</Select.Option>
+              {roleOptions.map(option => (
+                <Select.Option key={option.value} value={option.value}>
+                  {option.label}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item>

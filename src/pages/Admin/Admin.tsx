@@ -1,7 +1,6 @@
 import React, { Fragment, useState, useEffect } from "react";
 import {
   Button,
-  Form,
   Popover,
   Avatar,
   Empty,
@@ -9,6 +8,7 @@ import {
   Spin,
   Pagination,
   Select,
+  Space,
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -28,7 +28,7 @@ import { EditUser } from "./EditUser";
 export const Admin: React.FC = () => {
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
-  const [form] = Form.useForm();
+  // const [form] = Form.useForm();
   const [fullName, setfullName] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,6 @@ export const Admin: React.FC = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
-
   useEffect(() => {
     const fetchFullname = async () => {
       try {
@@ -88,11 +87,9 @@ export const Admin: React.FC = () => {
       });
   };
   useEffect(() => {
-    console.log("Total users updated:", totalUsers);
-  }, [totalUsers]);
-  useEffect(() => {
     const timerId = setTimeout(() => {
       fetchUsers({ username: searchTerm });
+      setCurrentPage(1);
     }, 500);
     return () => {
       clearTimeout(timerId);
@@ -100,11 +97,12 @@ export const Admin: React.FC = () => {
   }, [searchTerm]); // Gọi lại useEffect khi giá trị từ khóa tìm kiếm thay đổi
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchUsers({ username: searchTerm }, page);
+    fetchUsers({ username: searchTerm, role: selectedRole }, page);
   };
   const handleRoleChange = (value: number | undefined) => {
     setSelectedRole(value);
-    fetchUsers({ username: searchTerm, role: value }); // Gọi lại fetchUsers với role mới
+    fetchUsers({ username: searchTerm, role: value });
+    setCurrentPage(1);
   };
   const handleSuccess = () => {
     fetchUsers();
@@ -368,12 +366,12 @@ export const Admin: React.FC = () => {
             <h1 className="h3 mb-2 text-gray-800 text-left">Users</h1>
             <div className="card shadow mb-4">
               <div className="card-header py-3 d-flex justify-content-between">
-                <div>
+                <div className="d-flex">
                   <div
                     className="input-group"
                     style={{
                       borderRadius: "7px",
-                      border: "1px solid blue",
+                      border: "1px solid #4E73DF",
                       width: "400px",
                     }}
                   >
@@ -393,10 +391,17 @@ export const Admin: React.FC = () => {
                     </div>
                   </div>
                   <Select
-                    style={{ width: 200 }}
-                    placeholder="Select role"
+                    defaultValue={selectedRole}
+                    style={{
+                      width: 200,
+                      borderRadius: "7px",
+                      border: "1px solid #4E73DF",
+                      color: "#000",
+                      height: 40,
+                      margin: "0 0 0 20px",
+                    }}
+                    placeholder="All"
                     onChange={handleRoleChange}
-                    value={selectedRole}
                   >
                     <Select.Option value={undefined}>All</Select.Option>
                     <Select.Option value={1}>Admin</Select.Option>
@@ -441,7 +446,17 @@ export const Admin: React.FC = () => {
                           <td>{user.email}</td>
                           <td>{user.address}</td>
                           {/* <td>{user.role}</td> */}
-                          <td>
+                          <td
+                            className="font-weight-bold"
+                            style={{
+                              color:
+                                user.role === 1
+                                  ? "red"
+                                  : user.role === 2
+                                  ? "blue"
+                                  : "black",
+                            }}
+                          >
                             {(() => {
                               switch (user.role) {
                                 case 1:
@@ -457,25 +472,27 @@ export const Admin: React.FC = () => {
                             {new Date(user.created_at).toLocaleDateString()}
                           </td>
                           <td>
-                            <EditUser
-                              userId={user.id}
-                              onEditUserSuccess={handleSuccess}
-                            />
-                            <Popconfirm
-                              key={user.id}
-                              title="Delete the user"
-                              description="Are you sure to delete this user?"
-                              onConfirm={() => confirm(user.id)}
-                              okText="Yes"
-                              cancelText="No"
-                            >
-                              <Button
-                                type="primary"
-                                style={{ backgroundColor: "#DC3545" }}
+                            <Space>
+                              <EditUser
+                                userId={user.id}
+                                onEditUserSuccess={handleSuccess}
+                              />
+                              <Popconfirm
+                                key={user.id}
+                                title="Delete the user"
+                                description="Are you sure to delete this user?"
+                                onConfirm={() => confirm(user.id)}
+                                okText="Yes"
+                                cancelText="No"
                               >
-                                <DeleteOutlined />
-                              </Button>
-                            </Popconfirm>
+                                <Button
+                                  type="primary"
+                                  style={{ backgroundColor: "#DC3545" }}
+                                >
+                                  <DeleteOutlined />
+                                </Button>
+                              </Popconfirm>
+                            </Space>
                           </td>
                         </tr>
                       ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Button, Form, Input, message, Select } from "antd";
+import { Modal, Button, Form, Input, Select } from "antd";
 import axios from "axios";
 import { BASE_URL } from "../../axios/axios";
 import { User } from "../../components/user.type";
@@ -30,11 +30,15 @@ export const EditUser: React.FC<EditUserProps> = ({
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((res) => {
-          form.setFieldsValue(res.data.user);
+          const user = res.data.user;
+          form.setFieldsValue({
+            ...user,
+            role: user.role.toString(), // Ensure role value is a string
+          })
         })
-        .catch(() => {
+        .catch((error) => {
           toast.error(
-            "Failed to fetch user data. Please try again.",
+            error.response?.data?.message || "Failed to fetch user data. Please try again.",
             toastConfig
           );
         });
@@ -42,20 +46,28 @@ export const EditUser: React.FC<EditUserProps> = ({
   }, [userId, visible]);
 
   const handleOk = () => {
-    form.validateFields().then((values) => {
-      axios
-        .put(`${BASE_URL}/user/edit/${userId}`, values, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((res) => {
-          setVisible(false);
-          onEditUserSuccess(res.data);
-          toast.success("User updated successfully", toastConfig);
-        })
-        .catch(() => {
-          toast.error("Failed to update user. Please try again.", toastConfig);
-        });
-    });
+    form
+      .validateFields()
+      .then((values) => {
+        axios
+          .put(`${BASE_URL}/user/edit/${userId}`, values, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((res) => {
+            setVisible(false);
+            onEditUserSuccess(res.data);
+            toast.success("User updated successfully", toastConfig);
+          })
+          .catch((error) => {
+            toast.error(
+              error.response?.data?.message || "Failed to update user. Please try again.",
+              toastConfig
+            );
+          });
+      })
+      .catch((errorInfo) => {
+        console.log("Validate Failed:", errorInfo);
+      });
   };
 
   return (
