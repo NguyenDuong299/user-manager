@@ -60,6 +60,7 @@ export const Admin: React.FC = () => {
   //get item
   const fetchUsers = (params = {}, page = 1) => {
     setLoading(true);
+    setUsers([])
     axios
       .get(`${BASE_URL}/users`, {
         headers: {
