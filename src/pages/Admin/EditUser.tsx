@@ -11,10 +11,12 @@ interface EditUserProps {
   userId: number;
   onEditUserSuccess: (updatedUser: User) => void;
 }
+
 const roleOptions = [
   { value: "1", label: "Admin" },
   { value: "2", label: "User" },
 ];
+
 export const EditUser: React.FC<EditUserProps> = ({
   userId,
   onEditUserSuccess,
@@ -34,18 +36,22 @@ export const EditUser: React.FC<EditUserProps> = ({
           form.setFieldsValue({
             ...user,
             role: user.role.toString(), // Ensure role value is a string
-          })
+          });
         })
         .catch((error) => {
           toast.error(
-            error.response?.data?.message || "Failed to fetch user data. Please try again.",
+            error.response?.data?.message ||
+              "Failed to fetch user data. Please try again.",
             toastConfig
           );
         });
     }
-  }, [userId, open]);
+  }, [userId, open, token, form]);
+
+  const [loadingButton, setLoadingButton] = useState(false);
 
   const handleOk = () => {
+    setLoadingButton(true);
     form
       .validateFields()
       .then((values) => {
@@ -55,18 +61,23 @@ export const EditUser: React.FC<EditUserProps> = ({
           })
           .then((res) => {
             setOpen(false);
-            onEditUserSuccess(res.data);
+            onEditUserSuccess(res.data.user);
             toast.success("User updated successfully", toastConfig);
           })
           .catch((error) => {
             toast.error(
-              error.response?.data?.message || "Failed to update user. Please try again.",
+              error.response?.data?.message ||
+                "Failed to update user. Please try again.",
               toastConfig
             );
+          })
+          .finally(() => {
+            setLoadingButton(false); // Reset loading state
           });
       })
       .catch((errorInfo) => {
         console.log("Validate Failed:", errorInfo);
+        setLoadingButton(false); // Reset loading state if validation fails
       });
   };
 
@@ -80,19 +91,26 @@ export const EditUser: React.FC<EditUserProps> = ({
         open={open}
         onOk={handleOk}
         onCancel={() => setOpen(false)}
+        okButtonProps={{ loading: loadingButton }} // Apply loading state to OK button
       >
         <Form form={form} layout="vertical">
           <Form.Item
             name="username"
             label="Username"
-            rules={[{ required: true, message: "Please input the username!" }]}
+            rules={[
+              { required: true, message: "Please input the username!" },
+              { max: 20, message: "Username cannot be longer than 20 characters!" },
+            ]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="fullname"
             label="Full Name"
-            rules={[{ required: true, message: "Please input the full name!" }]}
+            rules={[
+              { required: true, message: "Please input the full name!" },
+              { max: 50, message: "Fullname cannot be longer than 50 characters!" },
+            ]}
           >
             <Input />
           </Form.Item>
@@ -122,24 +140,14 @@ export const EditUser: React.FC<EditUserProps> = ({
             label="Phone Number"
             rules={[
               { required: true, message: "Please input your phone number!" },
-              {
-                pattern: /^[0-9]{10}$/,
-                message: "Phone number must be 10 digits!",
-              },
+              { pattern: /^[0-9]{10}$/, message: "Phone number must be 10 digits!" },
             ]}
           >
             <Input />
           </Form.Item>
-          {/* <Form.Item
-            name="avatar"
-            label="Avatar URL"
-            rules={[{ required: true, message: "Please input the avatar URL!" }]}
-          >
-            <Input />
-          </Form.Item> */}
           <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-          <Select>
-              {roleOptions.map(option => (
+            <Select>
+              {roleOptions.map((option) => (
                 <Select.Option key={option.value} value={option.value}>
                   {option.label}
                 </Select.Option>

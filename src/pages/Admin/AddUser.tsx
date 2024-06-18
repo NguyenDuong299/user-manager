@@ -15,7 +15,6 @@ const roleOptions = [
 export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form] = Form.useForm();
-
   const showAddUser = () => {
     setIsAddOpen(true);
   };
@@ -24,7 +23,10 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
     form.resetFields(); // Reset form fields when modal is closed
   };
   const token = localStorage.getItem("token");
+  const [loadingButton, setLoadingButton] = useState(false);
+  
   const onFinish = async (values: any) => {
+    setLoadingButton(true)
     try {
       const response = await axios.post(`${BASE_URL}/user/create`, values, {
         headers: {
@@ -39,6 +41,9 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
     } catch (error) {
       console.error("Failed:", error);
       toast.error("Form submission failed!", toastConfig);
+    }
+    finally{
+      setLoadingButton(false)
     }
   };
 
@@ -62,6 +67,10 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
                 required: true,
                 message: "Please input your username!",
               },
+              {
+                max: 20,
+                message: "Username cannot be longer than 20 characters!",
+              },
             ]}
           >
             <Input />
@@ -73,6 +82,10 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
               {
                 required: true,
                 message: "Please input your fullname!",
+              },
+              {
+                max: 50,
+                message: "Fullname cannot be longer than 50 characters!",
               },
             ]}
           >
@@ -160,7 +173,7 @@ export const AddUser: React.FC<AddUserProps> = ({ onAddUserSuccess }) => {
             </Select>
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit">
+            <Button type="primary" htmlType="submit" loading={loadingButton}>
               Submit
             </Button>
           </Form.Item>

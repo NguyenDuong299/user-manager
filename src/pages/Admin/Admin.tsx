@@ -11,6 +11,7 @@ import {
   Space,
 } from "antd";
 import { useNavigate } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import { User } from "../../components/user.type";
 import { BASE_URL } from "../../axios/axios";
@@ -28,7 +29,6 @@ import { EditUser } from "./EditUser";
 export const Admin: React.FC = () => {
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
-  // const [form] = Form.useForm();
   const [fullName, setfullName] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +39,9 @@ export const Admin: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<number | undefined>(
     undefined
   );
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
   useEffect(() => {
     const fetchFullname = async () => {
       try {
@@ -58,9 +58,11 @@ export const Admin: React.FC = () => {
     fetchFullname();
   }, []);
   //get item
-  const fetchUsers = (params = {}, page = 1) => {
-    setLoading(true);
-    setUsers([])
+  const fetchUsers = (params = {}, isLoading = true) => {
+    if (isLoading) {
+      setLoading(true);
+      setUsers([]); // Reset users when loading new data
+    }
     axios
       .get(`${BASE_URL}/users`, {
         headers: {
@@ -68,7 +70,6 @@ export const Admin: React.FC = () => {
         },
         params: {
           ...params,
-          page,
           limit: 10, // Set the correct page size
         },
       })
@@ -83,34 +84,62 @@ export const Admin: React.FC = () => {
       })
       .catch((error) => {
         setLoading(false);
-        setError(error.data.message || "Something went wrong");
-        setTotalUsers(0); // Đặt tổng số người dùng là 0
+        setError(error.response?.data?.message || "Something went wrong");
+        setTotalUsers(0); // Reset total users on error
       });
   };
+  // useEffect(() => {
+  //   const searchTerm = searchParams.get("p") || "";
+  //   if(!searchTerm){
+  //     fetchUsers()
+  //   }
+  // }, []);
+  const initParamsFromUrl = () => {
+    const updatedSearchTerm = searchParams.get("p") || "";
+    const updatedRole = Number(searchParams.get("role")) || undefined;
+    const updatedPage = searchParams.get("page") || "1";
+  
+    setSearchTerm(updatedSearchTerm);
+    setSelectedRole(updatedRole);
+    setCurrentPage(parseInt(updatedPage, 10));
+    fetchUsers({ username: updatedSearchTerm, role: updatedRole, page: updatedPage });
+  };
   useEffect(() => {
-    const timerId = setTimeout(() => {
-      fetchUsers({ username: searchTerm });
-      setCurrentPage(1);
-    }, 500);
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [searchTerm]); // Gọi lại useEffect khi giá trị từ khóa tìm kiếm thay đổi
+    initParamsFromUrl();
+  }, [location.search]);
+  
+  // Handler for search button click
+  const handleSearchClick = () => {
+    const params = new URLSearchParams();
+    params.set("p", searchTerm);
+    params.set('role', selectedRole?.toString() || '');
+    params.set("page", currentPage.toString());
+    setSearchParams(params);
+  };
+  
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchUsers({ username: searchTerm, role: selectedRole }, page);
+    
+    const params = new URLSearchParams();
+    params.set("p", searchTerm);
+    params.set("role", selectedRole?.toString() || "");
+    params.set("page", page.toString());
+    setSearchParams(params);
   };
+  
   const handleRoleChange = (value: number | undefined) => {
     setSelectedRole(value);
-    fetchUsers({ username: searchTerm, role: value });
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset page to 1 when role changes
+    const params = new URLSearchParams();
+    params.set("p", searchTerm);
+    params.set("role", value?.toString() || "");
+    params.set("page", "1");
+    setSearchParams(params);
   };
   const handleSuccess = () => {
-    fetchUsers();
+    fetchUsers({ username: searchTerm, role: selectedRole },  false);
   };
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+
   const handleDeleteUser = (id: number) => {
     axios
       .delete(`${BASE_URL}/user/delete/${id}`, {
@@ -173,7 +202,7 @@ export const Admin: React.FC = () => {
       >
         <a
           className="sidebar-brand d-flex align-items-center justify-content-center"
-          href="index.html"
+          href="/"
         >
           <div className="sidebar-brand-icon rotate-n-15">
             <i className="fas fa-laugh-wink" />
@@ -186,7 +215,7 @@ export const Admin: React.FC = () => {
         <hr className="sidebar-divider my-0" />
         {/* Nav Item - Dashboard */}
         <li className="nav-item active">
-          <a className="nav-link" href="index.html">
+          <a className="nav-link" href="/">
             <i className="fas fa-fw fa-tachometer-alt" />
             <span>Dashboard</span>
           </a>
@@ -383,16 +412,22 @@ export const Admin: React.FC = () => {
                       aria-label="Search"
                       aria-describedby="basic-addon2"
                       value={searchTerm}
-                      onChange={handleSearchChange}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setSearchTerm(e.target.value)
+                      }
                     />
                     <div className="input-group-append">
-                      <button className="btn btn-primary" type="button">
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={handleSearchClick}
+                      >
                         <SearchOutlined />
                       </button>
                     </div>
                   </div>
                   <Select
-                    defaultValue={selectedRole}
+                    value={selectedRole}
                     style={{
                       width: 200,
                       borderRadius: "7px",
@@ -503,13 +538,15 @@ export const Admin: React.FC = () => {
                   {!loading && users.length === 0 && (
                     <Empty description={false} />
                   )}
-                  <Pagination
-                    current={currentPage}
-                    pageSize={10}
-                    total={totalUsers}
-                    onChange={handlePageChange}
-                    defaultCurrent={1}
-                  />
+                  {!loading && Math.ceil(totalUsers / 10) > 1 && (
+                    <Pagination
+                      current={currentPage}
+                      pageSize={10}
+                      total={totalUsers}
+                      onChange={handlePageChange}
+                      defaultCurrent={1}
+                    />
+                  )}
                 </div>
               </div>
             </div>
