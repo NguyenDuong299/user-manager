@@ -1,4 +1,4 @@
-import React, { Fragment, useState, useEffect } from "react";
+import React, { Fragment, useState, useEffect, useMemo } from "react";
 import {
   Button,
   Popover,
@@ -9,6 +9,8 @@ import {
   Pagination,
   Select,
   Space,
+  Input,
+  Form,
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useSearchParams, useLocation } from "react-router-dom";
@@ -17,30 +19,33 @@ import { User } from "../../components/user.type";
 import { BASE_URL } from "../../axios/axios";
 import { toast } from "react-toastify";
 import { toastConfig } from "../../toast/toastConfig";
+import 'react-toastify/dist/ReactToastify.css';
 import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
-  SearchOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
 import { AddUser } from "./AddUser";
 import { EditUser } from "./EditUser";
+import debounce from "lodash/debounce";
 export const Admin: React.FC = () => {
+  const [form] = Form.useForm();
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
   const [fullName, setfullName] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [selectedRole, setSelectedRole] = useState<number | undefined>(
-    undefined
-  );
-  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const [paramsFilter, setParamsFilter] = useState({
+    username: "",
+    role: 0,
+    limit: 10,
+    page: 1,
+  });
+  const [paramsInitialized, setParamsInitialized] = useState(false);
 
   useEffect(() => {
     const fetchFullname = async () => {
@@ -56,88 +61,96 @@ export const Admin: React.FC = () => {
       }
     };
     fetchFullname();
-  }, []);
-  //get item
-  const fetchUsers = (params = {}, isLoading = true) => {
+  }, [token]);
+
+  const fetchUsers = (isLoading = true) => {
     if (isLoading) {
       setLoading(true);
-      setUsers([]); // Reset users when loading new data
+      setUsers([]);
+      setTotalUsers(0);
     }
     axios
       .get(`${BASE_URL}/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        params: {
-          ...params,
-          limit: 10, // Set the correct page size
-        },
+        params: paramsFilter,
       })
       .then((res) => {
         setLoading(false);
-        if (res?.data.user.data) {
-          setUsers(res.data.user.data);
-          setTotalUsers(res.data.user.total);
-        } else {
-          setUsers([]);
-        }
+        setUsers(res.data.user.data);
+        setTotalUsers(res.data.user.total);
       })
       .catch((error) => {
         setLoading(false);
         setError(error.response?.data?.message || "Something went wrong");
-        setTotalUsers(0); // Reset total users on error
       });
   };
-  // useEffect(() => {
-  //   const searchTerm = searchParams.get("p") || "";
-  //   if(!searchTerm){
-  //     fetchUsers()
-  //   }
-  // }, []);
-  const initParamsFromUrl = () => {
-    const updatedSearchTerm = searchParams.get("p") || "";
-    const updatedRole = Number(searchParams.get("role")) || undefined;
-    const updatedPage = searchParams.get("page") || "1";
-  
-    setSearchTerm(updatedSearchTerm);
-    setSelectedRole(updatedRole);
-    setCurrentPage(parseInt(updatedPage, 10));
-    fetchUsers({ username: updatedSearchTerm, role: updatedRole, page: updatedPage });
-  };
   useEffect(() => {
-    initParamsFromUrl();
-  }, [location.search]);
-  
-  // Handler for search button click
-  const handleSearchClick = () => {
-    const params = new URLSearchParams();
-    params.set("p", searchTerm);
-    params.set('role', selectedRole?.toString() || '');
-    params.set("page", currentPage.toString());
-    setSearchParams(params);
+    if (paramsInitialized) {
+      fetchUsers();
+    }
+  }, [paramsFilter, paramsInitialized]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.size > 0) {
+      const searchTerm = searchParams.get("searchTerm") || "";
+      setParamsFilter({
+        role: Number(searchParams.get("role") || "0"),
+        username: searchTerm,
+        page: Number(searchParams.get("page") || "1"),
+        limit: 10,
+      });
+      form.setFieldValue('searchTerm', searchTerm)
+    }
+    setParamsInitialized(true);
+  }, []);
+
+  const handleRole = (role: number) => {
+    setParamsFilter((prevParams) => ({
+      ...prevParams,
+      role,
+      page: 1,
+    }));
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("role", role.toString());
+    searchParams.set("page", "1");
+    navigate(`${location.pathname}?${searchParams.toString()}`);
   };
-  
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    
-    const params = new URLSearchParams();
-    params.set("p", searchTerm);
-    params.set("role", selectedRole?.toString() || "");
-    params.set("page", page.toString());
-    setSearchParams(params);
+
+  const handlePagination = (page: number) => {
+    setParamsFilter((prevParams) => ({
+      ...prevParams,
+      page: page,
+    }));
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("page", page.toString());
+    navigate(`${location.pathname}?${searchParams.toString()}`);
   };
-  
-  const handleRoleChange = (value: number | undefined) => {
-    setSelectedRole(value);
-    setCurrentPage(1); // Reset page to 1 when role changes
-    const params = new URLSearchParams();
-    params.set("p", searchTerm);
-    params.set("role", value?.toString() || "");
-    params.set("page", "1");
-    setSearchParams(params);
+
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        setParamsFilter((prevParams) => ({
+          ...prevParams,
+          username: value,
+          page: 1,
+        }));
+        const searchParams = new URLSearchParams(location.search);
+        searchParams.set("searchTerm", value);
+        searchParams.set("page", "1");
+        navigate(`${location.pathname}?${searchParams.toString()}`);
+      }, 500),
+    [location, navigate]
+  );
+
+  const handleSearch = (value: string) => {
+    debouncedSearch(value);
   };
+
   const handleSuccess = () => {
-    fetchUsers({ username: searchTerm, role: selectedRole },  false);
+    fetchUsers(false);
   };
 
   const handleDeleteUser = (id: number) => {
@@ -151,8 +164,7 @@ export const Admin: React.FC = () => {
         setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
         toast.success("User deleted successfully!", toastConfig);
       })
-      .catch((error) => {
-        console.error("Error deleting user:", error);
+      .catch(() => {
         toast.error("Error!", toastConfig);
       });
   };
@@ -396,55 +408,37 @@ export const Admin: React.FC = () => {
             <h1 className="h3 mb-2 text-gray-800 text-left">Users</h1>
             <div className="card shadow mb-4">
               <div className="card-header py-3 d-flex justify-content-between">
-                <div className="d-flex">
-                  <div
-                    className="input-group"
-                    style={{
-                      borderRadius: "7px",
-                      border: "1px solid #4E73DF",
-                      width: "400px",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      className="form-control bg-light border-0 small"
-                      placeholder="Search for..."
-                      aria-label="Search"
-                      aria-describedby="basic-addon2"
-                      value={searchTerm}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setSearchTerm(e.target.value)
-                      }
-                    />
-                    <div className="input-group-append">
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={handleSearchClick}
-                      >
-                        <SearchOutlined />
-                      </button>
+                <Form form={form}>
+                  <div className="d-flex">
+                    <div className="input-group">
+                      <Form.Item name="searchTerm">
+                        <Input.Search
+                          placeholder="Search..."
+                          enterButton="Search"
+                          onSearch={handleSearch}
+                          onChange={(e) => debouncedSearch(e.target.value)}
+                          style={{ width: 300, marginBottom: 10 }}
+                        />
+                      </Form.Item>
                     </div>
+                    <Select
+                      style={{
+                        width: 220,
+                        borderRadius: "7px",
+                        border: "1px solid #4E73DF",
+                        color: "#000",
+                        margin: "0 0 0 -30px",
+                      }}
+                      placeholder="All"
+                      value={paramsFilter.role}
+                      onChange={(value) => handleRole(value as number)}
+                    >
+                      <Select.Option value={0}>All</Select.Option>
+                      <Select.Option value={1}>Admin</Select.Option>
+                      <Select.Option value={2}>User</Select.Option>
+                    </Select>
                   </div>
-                  <Select
-                    value={selectedRole}
-                    style={{
-                      width: 200,
-                      borderRadius: "7px",
-                      border: "1px solid #4E73DF",
-                      color: "#000",
-                      height: 40,
-                      margin: "0 0 0 20px",
-                    }}
-                    placeholder="All"
-                    onChange={handleRoleChange}
-                  >
-                    <Select.Option value={undefined}>All</Select.Option>
-                    <Select.Option value={1}>Admin</Select.Option>
-                    <Select.Option value={2}>User</Select.Option>
-                  </Select>
-                </div>
-
+                </Form>
                 <AddUser onAddUserSuccess={handleSuccess} />
               </div>
               <div className="card-body">
@@ -538,13 +532,13 @@ export const Admin: React.FC = () => {
                   {!loading && users.length === 0 && (
                     <Empty description={false} />
                   )}
-                  {!loading && Math.ceil(totalUsers / 10) > 1 && (
+                  {totalUsers / 10 > 1 && (
                     <Pagination
-                      current={currentPage}
-                      pageSize={10}
-                      total={totalUsers}
-                      onChange={handlePageChange}
-                      defaultCurrent={1}
+                      style={{ marginTop: "20px" }}
+                      pageSize={paramsFilter.limit}
+                      total={totalUsers} // Total number of items
+                      onChange={handlePagination}
+                      current={paramsFilter.page}
                     />
                   )}
                 </div>
